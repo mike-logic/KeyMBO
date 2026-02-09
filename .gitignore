@@ -27,3 +27,6 @@ wifi.json
 # Allow web-flasher binaries (for ESP Web Tools)
 !web-flasher/bins/
 !web-flasher/bins/*.bin
+# Allow ESP Web Tools artifacts
+!docs/bins/
+!docs/bins/*.bin
