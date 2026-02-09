@@ -12,22 +12,36 @@ The project is intentionally focused and opinionated:
 
 ## 🧠 Architecture
 
-KeyMBO operates in two parallel control paths:
+KeyMBO combines **native USB HID**, **BLE**, and **web-based control surfaces** into a single device focused on flexible input.
 
-- **USB HID** — The device presents itself as a standard USB keyboard and mouse when plugged into a host.
-- **BLE** — Used for remote input/control (typically from a phone or PWA).
+At a high level:
 
-Optionally, the device can connect to **Wi-Fi** to serve a small web UI and expose WebSocket endpoints for interaction.
+- **USB HID** is the primary output path — KeyMBO appears as a standard keyboard and mouse to the host computer.
+- **BLE** provides a wireless control channel (typically from a phone or tablet).
+- **Web apps (PWA / local UI)** provide higher-level input tools and scripting.
 
-There is no external configuration system and no role-based firmware — everything is handled by a single firmware image.
+There is a single firmware image and no role-based modes.
 
 ---
 
+
 ## 🚀 Getting Started
 
-### 1. Flash the Firmware
+### Flashing the Firmware
 
-KeyMBO is currently intended **only** for the **M5Stack AtomS3**, due to its screen size, button layout, and native USB support.
+KeyMBO is currently intended **only** for the **M5Stack AtomS3**.
+
+You can flash the device in two ways:
+
+#### Option 1: Flash from Your Browser (Recommended)
+
+KeyMBO can be flashed directly from your browser using **Chrome or Edge** — no IDE required.
+
+👉 **https://mike-logic.github.io/KeyMBO/**
+
+Plug in your AtomS3 via USB-C, click **Install**, and follow the prompts.
+
+#### Option 2: Flash via PlatformIO
 
 ```bash
 cd firmware
@@ -35,11 +49,10 @@ pio run -t upload
 pio run -t uploadfs
 ```
 
-After flashing:
-- Plug the AtomS3 into a host computer via USB-C
-- It will enumerate as a USB HID device
+After flashing, the device will enumerate as a USB HID keyboard and mouse when plugged into a host.
 
 ---
+
 
 ## 🔌 USB HID Mode
 
@@ -57,43 +70,50 @@ USB HID is always available when the device is plugged in, regardless of BLE or 
 
 ## 📡 BLE Mode
 
-BLE provides a wireless control path to KeyMBO.
+BLE provides a wireless control path to KeyMBO and is typically used by the web apps.
 
-Typical uses:
-- Sending key presses or mouse movement from a phone
-- Remote interaction without touching the device
+Through BLE, clients can:
+- Send keyboard input
+- Send mouse movement / clicks
+- Trigger stored macros or scripts
 
-BLE is active whenever the device is powered.
-
-The PWA or other BLE clients can:
-- Scan for the KeyMBO device
-- Connect and send input commands
-
-BLE does **not** require Wi-Fi.
+BLE does **not** require Wi-Fi and is active whenever the device is powered.
 
 ---
 
-## 📶 Wi-Fi + Web UI
 
-Wi-Fi is optional and used only for:
-- Hosting a small web UI
-- WebSocket-based control and debugging
+## 🖥 Web Apps (Local + Hosted)
 
-### Connecting to Wi-Fi
+KeyMBO includes multiple web-based control surfaces designed to work both **locally** (served by the device) and **remotely** (hosted PWA).
 
-On first boot (or when Wi-Fi is not configured):
+### Local Web UI (on-device)
 
-1. The device creates a temporary access point
-2. Connect to the AP from your phone or computer
-3. Select your local Wi-Fi network
+When KeyMBO is connected to Wi-Fi, it can serve a lightweight local interface directly from the device.
 
-Once connected:
-- The device will display its IP address
-- Open that address in a browser to access the web UI
+This UI is intended for:
+- Basic device interaction
+- Debugging and development
+- Direct control without installing anything
 
-Wi-Fi is **not required** for USB HID or BLE operation.
+### Hosted PWA
+
+A full-featured Progressive Web App is hosted externally and intended for daily use from mobile devices:
+
+👉 **https://mybad.website/keymbo**
+
+The PWA provides higher-level input tools, including:
+
+- **Virtual mousepad** — touch-based mouse movement and clicking
+- **Virtual keyboard** — send key presses wirelessly
+- **Ducky-style scripting** — define and trigger scripted input sequences
+- **Locally stored scripts** — scripts are stored in the browser and sent to the device on demand
+
+This allows complex input behavior without reflashing the device.
+
+Wi-Fi is optional for the PWA — BLE is the primary communication channel.
 
 ---
+
 
 ## 🖥 On-Device UI (AtomS3)
 
