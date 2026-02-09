@@ -1,26 +1,240 @@
 <!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>KeyMBO Web Flasher</title>
-  </head>
-  <body>
-    <h1>KeyMBO Web Flasher</h1>
-    <p>
-      Flash KeyMBO to an <b>M5Stack AtomS3</b> directly from your browser (Chrome/Edge).
-      Plug in USB, then click Install.
-    </p>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>KeyMBO — Web Flasher</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --surface:#0f172a;
+      --surface2:#111c33;
+      --border:#223052;
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#3b82f6;
+      --accent2:#60a5fa;
+      --good:#10b981;
+      --warn:#f59e0b;
+    }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,Helvetica,Arial,sans-serif;
+      background: radial-gradient(1200px 700px at 20% 10%, rgba(59,130,246,.25), transparent 55%),
+                  radial-gradient(900px 600px at 90% 30%, rgba(16,185,129,.12), transparent 60%),
+                  var(--bg);
+      color:var(--text);
+    }
+    a{ color:var(--accent2); text-decoration:none; }
+    a:hover{ text-decoration:underline; }
 
-    <script
-      type="module"
-      src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"
-    ></script>
+    .wrap{
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 28px 18px 40px;
+    }
 
-    <esp-web-install-button manifest="./manifest.json"></esp-web-install-button>
+    .top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:18px;
+    }
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+    }
+    .logo{
+      width:38px;height:38px;
+      border-radius:12px;
+      background: linear-gradient(135deg, rgba(59,130,246,.9), rgba(96,165,250,.6));
+      box-shadow: 0 8px 22px rgba(59,130,246,.25);
+      border:1px solid rgba(255,255,255,.15);
+    }
+    .brand h1{
+      font-size: 18px;
+      margin:0;
+      letter-spacing:.2px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .pill{
+      font-size:12px;
+      color:var(--muted);
+      border:1px solid var(--border);
+      background: rgba(15,23,42,.65);
+      padding:6px 10px;
+      border-radius:999px;
+      white-space:nowrap;
+    }
 
-    <p style="margin-top:24px;">
-      If flashing fails, hold <b>BOOT</b> while plugging in the AtomS3, then try again.
-    </p>
-  </body>
+    .hero{
+      border:1px solid var(--border);
+      background: linear-gradient(180deg, rgba(15,23,42,.85), rgba(15,23,42,.65));
+      border-radius:18px;
+      padding:22px;
+      box-shadow: 0 18px 40px rgba(0,0,0,.25);
+    }
+    .hero h2{
+      margin:0 0 8px;
+      font-size: 26px;
+      letter-spacing:.2px;
+    }
+    .hero p{
+      margin:0 0 14px;
+      color:var(--muted);
+      line-height:1.5;
+      max-width: 64ch;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:14px;
+      margin-top:16px;
+    }
+    @media (max-width: 860px){
+      .grid{ grid-template-columns:1fr; }
+    }
+
+    .card{
+      border:1px solid var(--border);
+      background: rgba(17,28,51,.6);
+      border-radius:16px;
+      padding:16px;
+    }
+    .card h3{
+      margin:0 0 10px;
+      font-size: 14px;
+      text-transform:uppercase;
+      letter-spacing:.12em;
+      color:#cbd5e1;
+    }
+    .steps{
+      margin:0; padding-left:18px;
+      color:var(--text);
+      line-height:1.55;
+    }
+    .steps li{ margin: 6px 0; }
+    .note{
+      margin-top:10px;
+      color:var(--muted);
+      font-size: 13px;
+      line-height:1.45;
+    }
+    .badges{
+      display:flex; flex-wrap:wrap; gap:8px;
+      margin-top:10px;
+    }
+    .badge{
+      font-size:12px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background: rgba(15,23,42,.55);
+      color: var(--muted);
+    }
+    .badge.good{ color: rgba(16,185,129,.95); border-color: rgba(16,185,129,.25); }
+    .badge.warn{ color: rgba(245,158,11,.95); border-color: rgba(245,158,11,.25); }
+
+    .install-area{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      align-items:flex-start;
+    }
+
+    /* Slightly style the install button wrapper */
+    esp-web-install-button{
+      --esp-tools-button-color: var(--accent);
+      --esp-tools-button-text-color: white;
+      --esp-tools-button-border-radius: 12px;
+      --esp-tools-button-padding: 12px 16px;
+      --esp-tools-button-font-size: 14px;
+    }
+
+    .footer{
+      margin-top:18px;
+      color:var(--muted);
+      font-size: 12px;
+    }
+    code{
+      background: rgba(15,23,42,.6);
+      border:1px solid var(--border);
+      padding:2px 6px;
+      border-radius:8px;
+      color:#cbd5e1;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>KeyMBO</h1>
+          <div style="color:var(--muted); font-size:12px; margin-top:2px;">Web Flasher</div>
+        </div>
+      </div>
+      <div class="pill">M5Stack AtomS3 • ESP32-S3 • USB HID</div>
+    </div>
+
+    <div class="hero">
+      <h2>Flash KeyMBO from your browser</h2>
+      <p>
+        Install the latest KeyMBO firmware onto an <b>M5Stack AtomS3</b> with one click.
+        Requires <b>Chrome</b> or <b>Edge</b> (Web Serial) and a USB-C cable.
+      </p>
+
+      <div class="grid">
+        <div class="card">
+          <h3>Install</h3>
+          <div class="install-area">
+            <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+            <esp-web-install-button manifest="./manifest.json"></esp-web-install-button>
+
+            <div class="badges">
+              <span class="badge good">AtomS3 only</span>
+              <span class="badge">Chrome / Edge</span>
+              <span class="badge">HTTPS required</span>
+              <span class="badge warn">Not iOS Safari</span>
+            </div>
+
+            <div class="note">
+              If the device doesn’t show up, try a different cable (data-capable), unplug/replug, or
+              hold <b>BOOT</b> while plugging in to enter the bootloader.
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Steps</h3>
+          <ol class="steps">
+            <li>Plug in the <b>M5Stack AtomS3</b> via USB-C.</li>
+            <li>Click <b>Install</b> and select the AtomS3 serial device.</li>
+            <li>Wait for flashing to complete, then the device will reboot.</li>
+            <li>Verify the AtomS3 enumerates as a <b>USB HID</b> device.</li>
+          </ol>
+          <div class="note">
+            This installer flashes: <code>bootloader</code>, <code>partitions</code>, <code>boot_app0</code>,
+            <code>firmware</code>, and <code>LittleFS</code>.
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        Having trouble? Make sure you’re on Chrome/Edge, the cable supports data, and no other app is holding the serial port.
+      </div>
+    </div>
+  </div>
+</body>
 </html>
