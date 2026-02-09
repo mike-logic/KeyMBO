@@ -1,0 +1,26 @@
+# ===== Global =====
+.DS_Store
+*.log
+*.tmp
+
+# ===== PlatformIO =====
+**/.pio/
+**/.vscode/
+**/build/
+
+# ===== Arduino =====
+*.elf
+*.bin
+*.map
+
+# ===== Node / PWA =====
+**/node_modules/
+**/dist/
+**/build/
+
+# ===== Env / Secrets =====
+.env
+.env.*
+config.local.*
+secrets.*
+wifi.json

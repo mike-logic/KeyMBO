@@ -1,0 +1,1096 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>KeyMBO HID</title>
+<style>
+/* (unchanged styles) */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+:root{
+  --primary:#2563eb; --primary-dark:#1e40af;
+  --success:#10b981; --danger:#ef4444; --warn:#f59e0b;
+  --bg:#0f172a; --surface:#1e293b; --surface-light:#334155;
+  --border:#475569; --text:#f1f5f9; --text-dim:#94a3b8;
+}
+html, body { height: 100%; }
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  margin:0; padding:0;
+  background:var(--bg); color:var(--text);
+  overflow:hidden;
+  height:100dvh;
+  display:flex; flex-direction:column;
+}
+header{
+  background:var(--surface);
+  padding:12px 16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.header-left{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-width:0;
+}
+h1{
+  margin:0;
+  font-size:18px;
+  font-weight:700;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.status-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 10px;
+  border-radius:12px;
+  font-size:12px;
+  font-weight:700;
+  background:var(--surface-light);
+  flex-shrink:0;
+}
+.status-dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:var(--text-dim);
+}
+.status-badge.connected .status-dot{
+  background:var(--success);
+  animation:pulse 2s ease-in-out infinite;
+}
+.status-badge.warn .status-dot{ background:var(--warn); }
+.status-badge.bad .status-dot{ background:var(--danger); }
+@keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.5} }
+
+.menu-btn{
+  background:none;
+  border:none;
+  color:var(--text);
+  font-size:24px;
+  cursor:pointer;
+  padding:4px 8px;
+  display:flex;
+  align-items:center;
+}
+
+main{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  min-height:0;
+}
+.touchpad-container{
+  flex:1;
+  padding:16px;
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+  overflow:hidden;
+}
+#touchpad{
+  flex:1 1 auto;
+  background:var(--surface);
+  border:2px solid var(--border);
+  border-radius:16px;
+  touch-action:none;
+  display:grid;
+  place-items:center;
+  user-select:none;
+  position:relative;
+  overflow:hidden;
+  min-height:160px;
+  max-height:clamp(240px, 46vh, 520px);
+}
+#touchpad::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(37,99,235,0.12) 0%, transparent 52%);
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .15s;
+}
+#touchpad.active::before{ opacity:1; }
+
+.touchpad-hint{
+  color:var(--text-dim);
+  font-size:14px;
+  text-align:center;
+  pointer-events:none;
+  padding:0 12px;
+  line-height:1.25;
+}
+
+.quick-actions{
+  padding:8px 16px;
+  background:var(--bg);
+  border-top:1px solid var(--border);
+  display:flex;
+  gap:6px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+  flex-shrink:0;
+}
+.quick-actions::-webkit-scrollbar{ display:none; }
+
+.quick-btn{
+  padding:8px 14px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:10px;
+  color:var(--text);
+  font-size:12px;
+  font-weight:800;
+  white-space:nowrap;
+  cursor:pointer;
+  flex-shrink:0;
+  user-select:none;
+  touch-action: manipulation;
+}
+.quick-btn:active{ background:var(--border); transform:scale(.98); }
+
+.controls{
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+  background:var(--surface);
+  border-top:1px solid var(--border);
+  display:flex;
+  gap:8px;
+  flex-shrink:0;
+}
+.btn{
+  flex:1;
+  padding:14px;
+  border:none;
+  border-radius:12px;
+  font-size:14px;
+  font-weight:900;
+  cursor:pointer;
+  transition:transform .08s, background .15s;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  user-select:none;
+  touch-action:none;
+}
+.btn-primary{ background:var(--primary); color:white; }
+.btn-primary:active{ background:var(--primary-dark); transform:scale(.97); }
+.btn-secondary{ background:var(--surface-light); color:var(--text); }
+.btn-secondary:active{ background:var(--border); transform:scale(.97); }
+.btn-danger{ background:var(--danger); color:white; }
+.btn-danger:active{ transform:scale(.97); }
+
+.panel-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.5);
+  z-index:100;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .25s;
+}
+.panel-overlay.active{ opacity:1; pointer-events:all; }
+
+.slide-panel{
+  position:fixed;
+  top:0;
+  right:-100%;
+  width:min(340px, 88vw);
+  height:100dvh;
+  background:var(--surface);
+  z-index:101;
+  transition:right .25s ease-out;
+  overflow-y:auto;
+  overflow-x:hidden;
+  overscroll-behavior:contain;
+  box-shadow:-4px 0 12px rgba(0,0,0,.3);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.slide-panel.active{ right:0; }
+
+.panel-header{
+  padding:16px;
+  border-bottom:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  position:sticky;
+  top:0;
+  background:var(--surface);
+  z-index:1;
+}
+.panel-header h2{ margin:0; font-size:18px; font-weight:900; }
+
+.close-btn{
+  background:none;
+  border:none;
+  color:var(--text);
+  font-size:28px;
+  cursor:pointer;
+  padding:0;
+  width:32px;
+  height:32px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.panel-section{ padding:16px; border-bottom:1px solid var(--border); }
+.panel-section:last-child{ padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+.panel-section h3{
+  margin:0 0 12px 0;
+  font-size:13px;
+  font-weight:900;
+  color:var(--text-dim);
+  text-transform:uppercase;
+  letter-spacing:.6px;
+}
+
+.kv{
+  display:grid;
+  grid-template-columns: 76px 1fr;
+  gap: 8px 10px;
+  align-items:center;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+}
+.kv code{
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.input-group{ margin-bottom:12px; }
+.input-group label{
+  display:block;
+  font-size:13px;
+  margin-bottom:6px;
+  color:var(--text-dim);
+}
+input[type="number"], input[type="text"], select, textarea{
+  width:100%;
+  padding:12px;
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:10px;
+  color:var(--text);
+  font-size:16px;
+  outline:none;
+  font-family:inherit;
+}
+input:focus, textarea:focus, select:focus{ border-color:var(--primary); }
+
+.btn-full{ width:100%; margin-top:8px; }
+
+.key-grid{
+  display:grid;
+  grid-template-columns:repeat(2, 1fr);
+  gap:8px;
+}
+.key-btn{
+  padding:12px;
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:10px;
+  color:var(--text);
+  font-size:13px;
+  font-weight:900;
+  cursor:pointer;
+  user-select:none;
+  touch-action: manipulation;
+}
+.key-btn:active{ background:var(--border); transform:scale(.97); }
+
+.scroll-controls{ display:flex; gap:8px; }
+.scroll-controls .btn{ padding:12px; }
+
+.modal-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.7);
+  z-index:200;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}
+.modal-overlay.active{ display:flex; }
+.modal{
+  background:var(--surface);
+  border-radius:16px;
+  width:min(420px, 100%);
+  max-height:90dvh;
+  overflow:hidden;
+  animation: modalIn .22s ease-out;
+}
+@keyframes modalIn{
+  from{ opacity:0; transform:translateY(16px) scale(.97);}
+  to{ opacity:1; transform:translateY(0) scale(1);}
+}
+.modal-header{ padding:18px 18px 12px; border-bottom:1px solid var(--border); }
+.modal-header h2{ margin:0; font-size:18px; font-weight:900; }
+.modal-body{ padding:16px 18px; max-height:62dvh; overflow-y:auto; }
+.modal-footer{
+  padding:14px 18px calc(14px + env(safe-area-inset-bottom));
+  border-top:1px solid var(--border);
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+}
+.btn-modal{
+  padding:10px 16px;
+  border:none;
+  border-radius:10px;
+  font-size:14px;
+  font-weight:900;
+  cursor:pointer;
+  color:var(--text);
+  background:var(--surface-light);
+}
+.btn-confirm{ background:var(--primary); color:white; }
+
+.small{
+  font-size:12px;
+  color:var(--text-dim);
+  line-height:1.35;
+}
+
+.row{ display:flex; gap:8px; }
+.row > * { flex:1; }
+
+@media (max-height: 700px){
+  #touchpad{ max-height: clamp(200px, 40vh, 420px); min-height: 140px; }
+  .btn{ padding:12px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="header-left">
+    <h1>KeyMBO HID</h1>
+    <div class="status-badge warn" id="statusBadge">
+      <span class="status-dot"></span>
+      <span id="statusText">Disconnected</span>
+    </div>
+  </div>
+  <button class="menu-btn" id="menuBtn">☰</button>
+</header>
+
+<main>
+  <div class="touchpad-container">
+    <div id="touchpad">
+      <div class="touchpad-hint">
+        <div style="font-size: 40px; margin-bottom: 8px;">👆</div>
+        <div>Tap to click • Drag to move</div>
+        <div style="margin-top:6px; font-size:12px;">Use ☰ for PIN + more controls</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quick-actions">
+    <button class="quick-btn" data-action="altTab">Alt+Tab</button>
+    <button class="quick-btn" data-action="ctrlC">Ctrl+C</button>
+    <button class="quick-btn" data-action="ctrlV">Ctrl+V</button>
+    <button class="quick-btn" data-action="ctrlL">Ctrl+L</button>
+    <button class="quick-btn" data-action="enter">Enter</button>
+    <button class="quick-btn" data-action="esc">Esc</button>
+    <button class="quick-btn" data-action="del">Delete</button>
+    <button class="quick-btn" data-action="prtsc">PrtSc</button>
+    <button class="quick-btn" data-action="mute">Mute</button>
+    <button class="quick-btn" data-action="voldn">Vol−</button>
+    <button class="quick-btn" data-action="volup">Vol+</button>
+  </div>
+
+  <div class="controls">
+    <button class="btn btn-secondary" id="leftClick">Left (hold)</button>
+    <button class="btn btn-secondary" id="rightClick">Right (hold)</button>
+    <button class="btn btn-primary" id="typeBtn">⌨️ Type</button>
+  </div>
+</main>
+
+<div class="panel-overlay" id="panelOverlay"></div>
+
+<div class="slide-panel" id="slidePanel">
+  <div class="panel-header">
+    <h2>Settings & Controls</h2>
+    <button class="close-btn" id="closePanel">&times;</button>
+  </div>
+
+  <div class="panel-section">
+    <h3>Connection</h3>
+    <div class="kv">
+      <div>IP</div><div><code id="devIP">?</code></div>
+      <div>SSID</div><div><code id="devSSID">?</code></div>
+      <div>PIN Req</div><div><code id="devPinReq">?</code></div>
+      <div>Media</div><div><code id="devMedia">?</code></div>
+    </div>
+
+    <div class="input-group">
+      <label>Device PIN</label>
+      <input type="number" id="pinInput" placeholder="Enter 6-digit PIN from device" inputmode="numeric" />
+    </div>
+
+    <button class="btn btn-primary btn-full" id="connectBtn">Connect</button>
+
+    <!-- ✅ NEW: HID Reset -->
+    <button class="btn btn-danger btn-full" id="hidResetBtn">🔌 HID Reset</button>
+    <div class="small" style="margin-top:10px;">
+      If the host slept and dropped the USB HID device, tap this (or the Atom button) to re-enumerate.
+    </div>
+
+    <div class="small" style="margin-top:10px;">
+      Join the Atom Wi-Fi, then open <code>http://<span id="urlHint">…</span></code>
+    </div>
+  </div>
+
+  <!-- rest of panel unchanged (Volume / Shortcuts / Scroll / Special Keys / Macros) -->
+  <!-- ... (kept exactly as you had it) ... -->
+
+  <div class="panel-section">
+    <h3>Volume</h3>
+    <div class="scroll-controls">
+      <button class="btn btn-secondary btn-full" id="volDown">Vol −</button>
+      <button class="btn btn-secondary btn-full" id="volUp">Vol +</button>
+    </div>
+    <button class="btn btn-secondary btn-full" id="muteBtn" style="margin-top:8px;">Mute</button>
+    <div class="small" style="margin-top:10px;">
+      If Media shows <code>false</code>, your current ESP32 core may not include Consumer Control HID.
+    </div>
+  </div>
+
+  <div class="panel-section">
+    <h3>Keyboard Shortcuts</h3>
+    <div class="key-grid">
+      <button class="key-btn" data-shortcut="altF4">Alt+F4</button>
+      <button class="key-btn" data-shortcut="ctrlW">Ctrl+W</button>
+      <button class="key-btn" data-shortcut="ctrlT">Ctrl+T</button>
+      <button class="key-btn" data-shortcut="ctrlZ">Ctrl+Z</button>
+      <button class="key-btn" data-shortcut="ctrlY">Ctrl+Y</button>
+      <button class="key-btn" data-shortcut="ctrlF">Ctrl+F</button>
+      <button class="key-btn" data-shortcut="winD">Win+D</button>
+      <button class="key-btn" data-shortcut="tab">Tab</button>
+    </div>
+  </div>
+
+  <div class="panel-section">
+    <h3>Scroll</h3>
+    <div class="scroll-controls">
+      <button class="btn btn-secondary btn-full" id="scrollUp">Scroll Up</button>
+      <button class="btn btn-secondary btn-full" id="scrollDown">Scroll Down</button>
+    </div>
+  </div>
+
+  <div class="panel-section">
+    <h3>Special Keys</h3>
+    <div class="key-grid">
+      <button class="key-btn" data-key="BACKSPACE">Backspace</button>
+      <button class="key-btn" data-key="DELETE">Delete</button>
+      <button class="key-btn" data-key="HOME">Home</button>
+      <button class="key-btn" data-key="END">End</button>
+      <button class="key-btn" data-key="PAGE_UP">Page Up</button>
+      <button class="key-btn" data-key="PAGE_DOWN">Page Dn</button>
+      <button class="key-btn" data-key="PRINTSCREEN">Print Screen</button>
+      <button class="key-btn" data-key="TAB">Tab</button>
+    </div>
+  </div>
+
+  <div class="panel-section">
+    <h3>Macros / Ducky</h3>
+
+    <div class="input-group">
+      <label>Saved Macros</label>
+      <select id="macroSelect"></select>
+    </div>
+
+    <div class="row">
+      <button class="btn btn-secondary" id="macroNew">New</button>
+      <button class="btn btn-secondary" id="macroDelete">Delete</button>
+    </div>
+
+    <div class="input-group" style="margin-top:12px;">
+      <label>Name</label>
+      <input type="text" id="macroName" placeholder="e.g. Login / Open Terminal" />
+    </div>
+
+    <div class="input-group">
+      <label>Script (Ducky-ish)</label>
+      <textarea id="macroBody" rows="10" placeholder="Example:
+REM Open Run dialog on Windows
+GUI r
+DELAY 200
+STRING notepad
+ENTER
+DELAY 300
+STRING hello from KeyMBO
+ENTER"></textarea>
+    </div>
+
+    <div class="row">
+      <button class="btn btn-secondary" id="macroSave">Save</button>
+      <button class="btn btn-primary" id="macroRun">Run</button>
+    </div>
+
+    <div class="small" style="margin-top:10px;">
+      Supports: <code>STRING</code>, <code>DELAY ms</code>, <code>REM</code>, keys like <code>ENTER</code>/<code>TAB</code>,
+      arrows, <code>HOME</code>/<code>END</code>/<code>PAGEUP</code>/<code>PAGEDOWN</code>, <code>PRINTSCREEN</code>,
+      and combos like <code>CTRL ALT DEL</code>.
+      Stored in this browser (localStorage).
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="typeModal">
+  <div class="modal">
+    <div class="modal-header"><h2>Type Text</h2></div>
+    <div class="modal-body">
+      <textarea id="typeInput" style="width:100%; min-height:120px; padding:12px; background:var(--bg); border:1px solid var(--border); border-radius:10px; color:var(--text); font-size:16px; resize:vertical; font-family:inherit;" placeholder="Enter text to send…"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal" id="cancelType">Cancel</button>
+      <button class="btn-modal btn-confirm" id="sendType">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  let ws = null;
+  let deviceIP = null;
+  let pinRequired = true;
+
+  const statusBadge = document.getElementById('statusBadge');
+  const statusText = document.getElementById('statusText');
+  const devIP = document.getElementById('devIP');
+  const devSSID = document.getElementById('devSSID');
+  const devPinReq = document.getElementById('devPinReq');
+  const devMedia = document.getElementById('devMedia');
+  const urlHint = document.getElementById('urlHint');
+  const pinInput = document.getElementById('pinInput');
+
+  function setStatus(text, state) {
+    statusText.textContent = text;
+    statusBadge.classList.remove('connected','warn','bad');
+    if (state === 'ok') statusBadge.classList.add('connected');
+    else if (state === 'bad') statusBadge.classList.add('bad');
+    else statusBadge.classList.add('warn');
+  }
+
+  function currentPin() {
+    return (pinInput.value || "").trim();
+  }
+
+  function mk(payload) {
+    const out = Object.assign({}, payload);
+    const p = currentPin();
+    if (pinRequired || p.length) out.pin = p;
+    return out;
+  }
+
+  function send(payload) {
+    if (!ws || ws.readyState !== 1) {
+      setStatus('Disconnected', 'warn');
+      return false;
+    }
+    ws.send(JSON.stringify(mk(payload)));
+    return true;
+  }
+
+  function tapKey(k) {
+    send({ t:"k", k, d:1 });
+    setTimeout(() => send({ t:"k", k, d:0 }), 25);
+  }
+
+  async function loadInfo() {
+    try {
+      const res = await fetch("/info", { cache: "no-store" });
+      const j = await res.json();
+      deviceIP = j.ip || location.hostname;
+      pinRequired = !!j.pinRequired;
+      devIP.textContent = deviceIP;
+      devSSID.textContent = j.ssid || "?";
+      devPinReq.textContent = String(pinRequired);
+      devMedia.textContent = String(!!j.hasConsumer);
+      urlHint.textContent = deviceIP;
+      setStatus('Disconnected', 'warn');
+    } catch {
+      deviceIP = location.hostname;
+      devIP.textContent = deviceIP;
+      devSSID.textContent = "?";
+      devPinReq.textContent = "?";
+      devMedia.textContent = "?";
+      urlHint.textContent = deviceIP;
+      setStatus('Info failed', 'bad');
+    }
+  }
+
+  // Panel controls
+  const menuBtn = document.getElementById('menuBtn');
+  const slidePanel = document.getElementById('slidePanel');
+  const panelOverlay = document.getElementById('panelOverlay');
+  const closePanel = document.getElementById('closePanel');
+
+  function openPanel(){
+    slidePanel.classList.add('active');
+    panelOverlay.classList.add('active');
+  }
+  function closePanelFn(){
+    slidePanel.classList.remove('active');
+    panelOverlay.classList.remove('active');
+  }
+
+  menuBtn.addEventListener('click', openPanel);
+  closePanel.addEventListener('click', closePanelFn);
+  panelOverlay.addEventListener('click', closePanelFn);
+
+  // Connection
+  const savedPin = localStorage.getItem("keymbo_pin");
+  if (savedPin) pinInput.value = savedPin;
+
+  document.getElementById('connectBtn').addEventListener('click', () => {
+    const PIN = currentPin();
+    if (pinRequired && PIN.length !== 6) {
+      setStatus('PIN required', 'warn');
+      return;
+    }
+    if (PIN.length) localStorage.setItem("keymbo_pin", PIN);
+
+    const proto = (location.protocol === "https:") ? "wss" : "ws";
+    const host = deviceIP || location.hostname;
+    const url = `${proto}://${host}/ws`;
+
+    setStatus('Connecting…', 'warn');
+    ws = new WebSocket(url);
+
+    ws.onopen = () => {
+      setStatus('Connected', 'ok');
+      closePanelFn();
+      ws.send(JSON.stringify(mk({ t: "hello" })));
+    };
+
+    ws.onmessage = (ev) => {
+      try {
+        const j = JSON.parse(ev.data);
+        if (j.t === "result" && j.status === "err") {
+          if (j.msg === "bad_pin") setStatus('Bad PIN', 'bad');
+        }
+        if (j.t === "result" && j.status === "ok") {
+          if (j.msg === "hid_reset") setStatus("HID reset sent", "ok");
+        }
+        if (j.t === "hello" && typeof j.pinRequired === "boolean") {
+          pinRequired = j.pinRequired;
+          devPinReq.textContent = String(pinRequired);
+          if (typeof j.hasConsumer === "boolean") devMedia.textContent = String(j.hasConsumer);
+        }
+      } catch {}
+    };
+
+    ws.onclose = () => setStatus('Disconnected', 'warn');
+    ws.onerror = () => setStatus('WS error', 'bad');
+  });
+
+  // ✅ NEW: HID reset button
+  const hidResetBtn = document.getElementById("hidResetBtn");
+  hidResetBtn.addEventListener("click", () => {
+    if (!send({ t:"hidreset" })) return;
+    setStatus("HID reset…", "warn");
+  });
+
+  // Type modal
+  const typeModal = document.getElementById('typeModal');
+  const typeBtn = document.getElementById('typeBtn');
+  const cancelType = document.getElementById('cancelType');
+  const sendType = document.getElementById('sendType');
+  const typeInput = document.getElementById('typeInput');
+
+  typeBtn.addEventListener('click', () => {
+    typeModal.classList.add('active');
+    setTimeout(() => typeInput.focus(), 80);
+  });
+
+  cancelType.addEventListener('click', () => {
+    typeModal.classList.remove('active');
+    typeInput.value='';
+  });
+
+  sendType.addEventListener('click', () => {
+    const text = typeInput.value || '';
+    if (!text.trim()) return;
+    if (send({ t:"txt", s:text })) {
+      typeModal.classList.remove('active');
+      typeInput.value='';
+    }
+  });
+
+  typeModal.addEventListener('click', (e) => {
+    if (e.target === typeModal) typeModal.classList.remove('active');
+  });
+
+  // Hold buttons (mouse press/release)
+  function bindHoldButton(el, msgDown, msgUp) {
+    el.addEventListener('pointerdown', (e) => {
+      el.setPointerCapture(e.pointerId);
+      send(msgDown);
+    });
+    const up = () => send(msgUp);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    el.addEventListener('lostpointercapture', up);
+    el.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+
+  bindHoldButton(document.getElementById('leftClick'), { t:"mc", b:"l", d:1 }, { t:"mc", b:"l", d:0 });
+  bindHoldButton(document.getElementById('rightClick'), { t:"mc", b:"r", d:1 }, { t:"mc", b:"r", d:0 });
+
+  // Volume = tap (firmware taps on down)
+  document.getElementById('volDown').addEventListener('click', () => tapKey("VOLDN"));
+  document.getElementById('volUp').addEventListener('click', () => tapKey("VOLUP"));
+  document.getElementById('muteBtn').addEventListener('click', () => tapKey("MUTE"));
+
+  // Scroll
+  document.getElementById('scrollUp').addEventListener('click', () => send({ t:"ms", v:-8 }));
+  document.getElementById('scrollDown').addEventListener('click', () => send({ t:"ms", v: 8 }));
+
+  // Quick actions
+  const shortcuts = {
+    altTab: { t:"combo", mods:["ALT"], k:"TAB" },
+    ctrlC: { t:"combo", mods:["CTRL"], k:"c" },
+    ctrlV: { t:"combo", mods:["CTRL"], k:"v" },
+    ctrlL: { t:"combo", mods:["CTRL"], k:"l" },
+    ctrlW: { t:"combo", mods:["CTRL"], k:"w" },
+    ctrlT: { t:"combo", mods:["CTRL"], k:"t" },
+    ctrlZ: { t:"combo", mods:["CTRL"], k:"z" },
+    ctrlY: { t:"combo", mods:["CTRL"], k:"y" },
+    ctrlF: { t:"combo", mods:["CTRL"], k:"f" },
+    altF4: { t:"combo", mods:["ALT"], k:"F4" },
+    winD: { t:"combo", mods:["GUI"], k:"d" },
+    tab: { tap:"TAB" },
+    enter: { tap:"ENTER" },
+    esc: { tap:"ESC" },
+    del: { tap:"DELETE" },
+    prtsc: { tap:"PRINTSCREEN" },
+    volup: { tap:"VOLUP" },
+    voldn: { tap:"VOLDN" },
+    mute: { tap:"MUTE" }
+  };
+
+  document.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const s = shortcuts[btn.dataset.action];
+      if (!s) return;
+      if (s.tap) tapKey(s.tap);
+      else send(s);
+    });
+  });
+
+  document.querySelectorAll('[data-shortcut]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const s = shortcuts[btn.dataset.shortcut];
+      if (!s) return;
+      if (s.tap) tapKey(s.tap);
+      else send(s);
+    });
+  });
+
+  document.querySelectorAll('[data-key]').forEach(btn => {
+    btn.addEventListener('click', () => tapKey(btn.dataset.key));
+  });
+
+  // Touchpad with tap-to-click (tap only if no drag)
+  const touchpad = document.getElementById('touchpad');
+  let lastPos = null;
+  let activePointerId = null;
+  let downAt = 0;
+  let moved = false;
+
+  function updateGlow(e){
+    const rect = touchpad.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    touchpad.style.setProperty('--mouse-x', `${x}%`);
+    touchpad.style.setProperty('--mouse-y', `${y}%`);
+  }
+
+  touchpad.addEventListener('pointerdown', (e) => {
+    touchpad.setPointerCapture(e.pointerId);
+    activePointerId = e.pointerId;
+    lastPos = { x: e.clientX, y: e.clientY };
+    downAt = performance.now();
+    moved = false;
+    touchpad.classList.add('active');
+    updateGlow(e);
+  });
+
+  touchpad.addEventListener('pointermove', (e) => {
+    if (activePointerId !== e.pointerId || !lastPos) return;
+    const dx = e.clientX - lastPos.x;
+    const dy = e.clientY - lastPos.y;
+    if (Math.abs(dx) + Math.abs(dy) > 2) moved = true;
+    const speed = 1.25;
+    if (dx || dy) send({ t:"mm", dx: Math.round(dx * speed), dy: Math.round(dy * speed) });
+    lastPos = { x: e.clientX, y: e.clientY };
+    updateGlow(e);
+  });
+
+  function endPointer(e){
+    if (activePointerId !== e.pointerId) return;
+    const elapsed = performance.now() - downAt;
+    const wasTap = !moved && elapsed < 220;
+    lastPos = null;
+    activePointerId = null;
+    touchpad.classList.remove('active');
+    if (wasTap) {
+      send({ t:"mc", b:"l", d:1 });
+      setTimeout(() => send({ t:"mc", b:"l", d:0 }), 20);
+    }
+  }
+
+  touchpad.addEventListener('pointerup', endPointer);
+  touchpad.addEventListener('pointercancel', () => {
+    lastPos = null;
+    activePointerId = null;
+    touchpad.classList.remove('active');
+  });
+
+  // Prevent zoom on double-tap (mobile)
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300) e.preventDefault();
+    lastTouchEnd = now;
+  }, { passive:false });
+
+  // Macros code unchanged (kept from your version)
+  // --------------------------
+  // ✅ Macros / Ducky support
+  // --------------------------
+  const LS_KEY = "keymbo_macros_v1";
+
+  const macroSelect = document.getElementById("macroSelect");
+  const macroName   = document.getElementById("macroName");
+  const macroBody   = document.getElementById("macroBody");
+  const macroNew    = document.getElementById("macroNew");
+  const macroDelete = document.getElementById("macroDelete");
+  const macroSave   = document.getElementById("macroSave");
+  const macroRun    = document.getElementById("macroRun");
+
+  function loadMacros() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveMacros(arr) {
+    localStorage.setItem(LS_KEY, JSON.stringify(arr));
+  }
+
+  function refreshMacroSelect(selectName = null) {
+    const macros = loadMacros();
+    macroSelect.innerHTML = "";
+    const opt0 = document.createElement("option");
+    opt0.value = "";
+    opt0.textContent = macros.length ? "— Select a macro —" : "— No macros saved —";
+    macroSelect.appendChild(opt0);
+
+    for (const m of macros) {
+      const opt = document.createElement("option");
+      opt.value = m.name;
+      opt.textContent = m.name;
+      macroSelect.appendChild(opt);
+    }
+
+    if (selectName) macroSelect.value = selectName;
+  }
+
+  function getSelectedMacro() {
+    const name = macroSelect.value;
+    if (!name) return null;
+    const macros = loadMacros();
+    return macros.find(m => m.name === name) || null;
+  }
+
+  function upsertMacro(name, body) {
+    const macros = loadMacros();
+    const trimmedName = (name || "").trim();
+    if (!trimmedName) return { ok:false, err:"Name required" };
+
+    const idx = macros.findIndex(m => m.name === trimmedName);
+    const entry = { name: trimmedName, body: String(body || "") };
+
+    if (idx >= 0) macros[idx] = entry;
+    else macros.push(entry);
+
+    macros.sort((a,b) => a.name.localeCompare(b.name));
+    saveMacros(macros);
+    return { ok:true };
+  }
+
+  function deleteMacro(name) {
+    const macros = loadMacros().filter(m => m.name !== name);
+    saveMacros(macros);
+  }
+
+  macroSelect.addEventListener("change", () => {
+    const m = getSelectedMacro();
+    if (!m) return;
+    macroName.value = m.name;
+    macroBody.value = m.body;
+  });
+
+  macroNew.addEventListener("click", () => {
+    macroSelect.value = "";
+    macroName.value = "";
+    macroBody.value = "";
+    macroName.focus();
+  });
+
+  macroSave.addEventListener("click", () => {
+    const res = upsertMacro(macroName.value, macroBody.value);
+    if (!res.ok) {
+      setStatus(res.err || "Save failed", "bad");
+      return;
+    }
+    refreshMacroSelect(macroName.value.trim());
+    setStatus("Saved macro", "ok");
+  });
+
+  macroDelete.addEventListener("click", () => {
+    const name = (macroName.value || "").trim();
+    if (!name) return;
+    deleteMacro(name);
+    refreshMacroSelect();
+    macroSelect.value = "";
+    macroName.value = "";
+    macroBody.value = "";
+    setStatus("Deleted macro", "ok");
+  });
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  function normKeyToken(tok) {
+    const t = tok.toUpperCase();
+    if (t === "CONTROL") return "CTRL";
+    if (t === "WINDOWS") return "GUI";
+    if (t === "WIN") return "GUI";
+    if (t === "RETURN") return "ENTER";
+    if (t === "ESCAPE") return "ESC";
+    if (t === "DEL") return "DELETE";
+    if (t === "PGUP") return "PAGE_UP";
+    if (t === "PAGEUP") return "PAGE_UP";
+    if (t === "PGDN") return "PAGE_DOWN";
+    if (t === "PAGEDOWN") return "PAGE_DOWN";
+    if (t === "PRTSCR") return "PRINTSCREEN";
+    if (t === "PRTSC") return "PRINTSCREEN";
+    if (t === "PRINT") return "PRINTSCREEN";
+    return t;
+  }
+
+  async function playComboTokens(tokens) {
+    if (!tokens.length) return;
+
+    if (tokens.length === 1) {
+      const k = tokens[0];
+      if (k.length === 1) {
+        send({ t:"k", k, d:1 });
+        await sleep(10);
+        send({ t:"k", k, d:0 });
+      } else {
+        tapKey(k);
+      }
+      return;
+    }
+
+    const mods = tokens.slice(0, -1);
+    const last = tokens[tokens.length - 1];
+    send({ t:"combo", mods, k:last });
+  }
+
+  let macroRunning = false;
+
+  async function runDucky(scriptText) {
+    if (macroRunning) return;
+    macroRunning = true;
+
+    try {
+      if (!ws || ws.readyState !== 1) {
+        setStatus("Connect first", "warn");
+        return;
+      }
+
+      setStatus("Running macro…", "warn");
+
+      const lines = String(scriptText || "").replace(/\r\n/g, "\n").split("\n");
+      for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trim();
+        if (!line) continue;
+
+        if (/^(REM|#|\/\/)/i.test(line)) continue;
+
+        const mDelay = line.match(/^DELAY\s+(\d+)/i);
+        if (mDelay) {
+          await sleep(parseInt(mDelay[1], 10) || 0);
+          continue;
+        }
+
+        const mStr = line.match(/^STRING\s+(.*)$/i);
+        if (mStr) {
+          const s = mStr[1] ?? "";
+          if (s.length) send({ t:"txt", s });
+          await sleep(20);
+          continue;
+        }
+
+        const tokens = line.split(/\s+/).map(normKeyToken).filter(Boolean);
+
+        const looksLikeText =
+          tokens.length > 1 &&
+          tokens.every(t => !["CTRL","ALT","SHIFT","GUI","ENTER","TAB","ESC","SPACE","BACKSPACE","DELETE","UP","DOWN","LEFT","RIGHT","HOME","END","PAGE_UP","PAGE_DOWN","PRINTSCREEN"].includes(t)) &&
+          tokens.every(t => !(t.length === 2 && t[0] === "F" && "123456789012".includes(t[1])));
+
+        if (looksLikeText) {
+          send({ t:"txt", s: line });
+          await sleep(20);
+          continue;
+        }
+
+        await playComboTokens(tokens);
+        await sleep(20);
+      }
+
+      setStatus("Macro done", "ok");
+    } catch {
+      setStatus("Macro failed", "bad");
+    } finally {
+      macroRunning = false;
+    }
+  }
+
+  macroRun.addEventListener("click", async () => {
+    const body = macroBody.value || "";
+    if (!body.trim()) return;
+    await runDucky(body);
+  });
+
+  refreshMacroSelect();
+  loadInfo();
+})();
+</script>
+</body>
+</html>

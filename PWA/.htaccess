@@ -1,0 +1,9 @@
+RewriteEngine On
+
+# --- Serve existing files/dirs directly (THIS FIXES app.js returning HTML) ---
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# --- Otherwise, route to index.php (if you need it) ---
+RewriteRule ^ index.php [L]
