@@ -1,0 +1,16 @@
+{
+  "name": "KeyMBO (M5Stack AtomS3)",
+  "version": "2026.02.08",
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        { "path": "./bins/bootloader.bin",  "offset": 0 },
+        { "path": "./bins/partitions.bin",  "offset": 32768 },
+        { "path": "./bins/boot_app0.bin",   "offset": 57344 },
+        { "path": "./bins/firmware.bin",    "offset": 65536 },
+        { "path": "./bins/littlefs.bin",    "offset": 6750208 }
+      ]
+    }
+  ]
+}
