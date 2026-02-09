@@ -24,3 +24,6 @@
 config.local.*
 secrets.*
 wifi.json
+# Allow web-flasher binaries (for ESP Web Tools)
+!web-flasher/bins/
+!web-flasher/bins/*.bin
